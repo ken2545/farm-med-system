@@ -25,14 +25,12 @@ export default function RequestPage() {
 
   const [requestMode, setRequestMode] = useState<'single' | 'set'>('single');
   
-  // แยก State ข้อมูลทั่วไป กับ ข้อมูลรายการยาออกจากกัน
-  const [requestForm, setRequestForm] = useState({
+  // 🌟 เติม <any> เพื่อแก้ Error ของ Vercel
+  const [requestForm, setRequestForm] = useState<any>({
     requester: '', department: '', date: new Date().toISOString().split('T')[0]
   });
-  // State สำหรับเก็บรายการยาแบบหลายรายการ (เริ่มต้นมี 1 แถวว่างๆ)
-  const [requestItems, setRequestItems] = useState([{ medName: '', amount: 1 }]);
-
-  const [setForm, setSetForm] = useState({ sowCount: 0, pigletCount: 0 });
+  const [requestItems, setRequestItems] = useState<any[]>([{ medName: '', amount: 1 }]);
+  const [setForm, setSetForm] = useState<any>({ sowCount: 0, pigletCount: 0 });
   const [calculatedItems, setCalculatedItems] = useState<any[]>([]);
 
   const fetchData = async () => {
@@ -70,7 +68,7 @@ export default function RequestPage() {
 
       if (sessionUser && sessionUser.role !== 'admin') {
         const matchedUser = allUsers.find((u: any) => u.name === sessionUser.name);
-        setRequestForm(prev => ({
+        setRequestForm((prev: any) => ({
           ...prev,
           requester: sessionUser.name,
           department: matchedUser ? (matchedUser.department || matchedUser.role) : 'พนักงานฟาร์ม'
@@ -91,13 +89,12 @@ export default function RequestPage() {
   const handleSelectRequester = (value: string) => {
     const matchedUser = users.find(u => u.name === value);
     const newDept = matchedUser ? (matchedUser.department || matchedUser.role) : requestForm.department;
-    setRequestForm(prev => ({ ...prev, requester: value, department: newDept }));
+    setRequestForm((prev: any) => ({ ...prev, requester: value, department: newDept }));
     if (!newDept.toLowerCase().includes('far') && !newDept.includes('คลอด')) {
       setRequestMode('single');
     }
   };
 
-  // ฟังก์ชันจัดการเพิ่ม/ลดรายการยาแบบ Manual
   const addRequestItem = () => {
     setRequestItems([...requestItems, { medName: '', amount: 1 }]);
   };
@@ -108,9 +105,10 @@ export default function RequestPage() {
     }
   };
 
-  const updateRequestItem = (index: number, field: 'medName' | 'amount', value: any) => {
+  // 🌟 ปรับแก้ field ให้เป็น string เพื่อแก้ Error TS2322
+  const updateRequestItem = (index: number, field: string, value: any) => {
     const newItems = [...requestItems];
-    newItems[index][field] = value;
+    newItems[index] = { ...newItems[index], [field]: value };
     setRequestItems(newItems);
   };
 
@@ -121,22 +119,22 @@ export default function RequestPage() {
       const items: any[] = [];
 
       medFormulas.forEach(med => {
+        let calculatedPacks = 0; // ประกาศตัวแปรรับค่าก่อนเพื่อแก้ Error
+
         if (med.target === 'แม่' && sows > 0) {
           if (med.calcType === 'ratePerHead') {
-            const packs = (sows * med.rate) / med.packSize;
-            items.push({ name: med.name, calc: packs, amount: Math.ceil(packs) || 1, unit: med.unit, type: 'แม่' });
+            calculatedPacks = (sows * (med.rate || 1)) / (med.packSize || 1);
           } else {
-            const packs = sows / med.rate;
-            items.push({ name: med.name, calc: packs, amount: Math.ceil(packs) || 1, unit: med.unit, type: 'แม่' });
+            calculatedPacks = sows / (med.rate || 1);
           }
+          items.push({ name: med.name, calc: calculatedPacks, amount: Math.ceil(calculatedPacks) || 1, unit: med.unit, type: 'แม่' });
         } else if (med.target === 'ลูก' && piglets > 0) {
           if (med.calcType === 'headsPerPack') {
-            const packs = piglets / med.rate;
-            items.push({ name: med.name, calc: packs, amount: Math.ceil(packs) || 1, unit: med.unit, type: 'ลูก' });
+            calculatedPacks = piglets / (med.rate || 1);
           } else {
-            const packs = (piglets * med.rate) / med.packSize;
-            items.push({ name: med.name, calc: packs, amount: Math.ceil(packs) || 1, unit: med.unit, type: 'ลูก' });
+            calculatedPacks = (piglets * (med.rate || 1)) / (med.packSize || 1);
           }
+          items.push({ name: med.name, calc: calculatedPacks, amount: Math.ceil(calculatedPacks) || 1, unit: med.unit, type: 'ลูก' });
         }
       });
       setCalculatedItems(items);
@@ -145,7 +143,7 @@ export default function RequestPage() {
 
   const updateCalculatedAmount = (index: number, newAmount: number) => {
     const newItems = [...calculatedItems];
-    newItems[index].amount = newAmount;
+    newItems[index] = { ...newItems[index], amount: newAmount };
     setCalculatedItems(newItems);
   };
 
@@ -164,10 +162,10 @@ export default function RequestPage() {
       
       const docNo = `REQ-${(new Date().getFullYear() + 543).toString().slice(-2)}${(new Date().getMonth() + 1).toString().padStart(2, '0')}-${Math.floor(1000 + Math.random() * 9000)}`;
 
-      let insertData = [];
+      // 🌟 เติม : any[] เพื่อแก้ Error Implicit Any
+      let insertData: any[] = [];
 
       if (requestMode === 'single') {
-        // วนลูปเช็คและบันทึกยาทุกตัวใน Array
         const validItems = requestItems.filter(item => item.medName.trim() !== '');
         
         if (validItems.length === 0) throw new Error('กรุณาระบุรายการยาอย่างน้อย 1 รายการ!');
@@ -216,7 +214,6 @@ export default function RequestPage() {
 
       showToast('ส่งคำขอเบิกยาสำเร็จ! (สถานะ: รออนุมัติ)', 'success');
       
-      // Reset Form
       setRequestForm({ requester: '', department: '', date: new Date().toISOString().split('T')[0] });
       setRequestItems([{ medName: '', amount: 1 }]);
       setSetForm({ sowCount: 0, pigletCount: 0 });
@@ -269,14 +266,12 @@ export default function RequestPage() {
     record.medName?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // การจัดกลุ่มข้อมูลตามเลขที่เอกสารเพื่อแสดงผลในตาราง
   const uniqueDocs = Array.from(new Set(filteredHistory.map(item => item.docNo)));
 
   const [selectedRecord, setSelectedRecord] = useState<any>(null);
   const [downloadModal, setDownloadModal] = useState({ isOpen: false, record: null as any, status: 'idle' });
   const [progress, setProgress] = useState(0);
 
-  // ฟังก์ชันดึงรายการยาเพื่อนร่วมบิล (เพื่อโชว์ใน Modal และ PDF)
   const getGroupedItems = (docNo: string) => {
     return formattedHistory.filter(item => item.docNo === docNo);
   };
@@ -301,7 +296,6 @@ export default function RequestPage() {
     pdfContent.style.fontFamily = '"Prompt", "Sarabun", sans-serif';
     pdfContent.style.color = '#1e293b';
     
-    // ปรับโค้ดใบเสร็จ PDF ให้วนลูปยาแบบหลายรายการ
     let itemsHtml = '';
     groupedItems.forEach((item, index) => {
       itemsHtml += `
@@ -409,7 +403,7 @@ export default function RequestPage() {
     }
   };
 
-  const isFarrowingBarn = requestForm.department.toLowerCase().includes('far') || requestForm.department.includes('คลอด');
+  const isFarrowingBarn = requestForm.department?.toLowerCase().includes('far') || requestForm.department?.includes('คลอด');
 
   return (
     <div className="flex h-screen bg-[#f8fafc] overflow-hidden relative font-sans">
@@ -451,9 +445,6 @@ export default function RequestPage() {
             </div>
           </div>
 
-          {/* ==========================================
-              TAB 1: ฟอร์มเบิกยา
-          ========================================== */}
           {activeTab === 'request' && (
             <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6 sm:p-8 animate-in fade-in duration-500 max-w-4xl mx-auto mt-10">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
@@ -465,7 +456,7 @@ export default function RequestPage() {
                   <input 
                     list="users-list"
                     type="text" 
-                    value={requestForm.requester} 
+                    value={requestForm.requester || ''} 
                     placeholder="-- เลือกผู้ขอเบิก --"
                     onChange={(e) => handleSelectRequester(e.target.value)}
                     disabled={currentUser?.role !== 'admin'} 
@@ -487,7 +478,7 @@ export default function RequestPage() {
                       onClick={() => setRequestMode('single')}
                       className={`flex-1 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all ${requestMode === 'single' ? 'bg-white text-blue-600 shadow-sm border border-blue-100' : 'text-slate-500 hover:bg-white/50'}`}
                     >
-                      <Pill size={18}/> เบิกยาปกติ (เลือกด้วยตัวเอง)
+                      <Pill size={18}/> เบิกยาปกติ (ทีละรายการ)
                     </button>
                     <button 
                       onClick={() => setRequestMode('set')}
@@ -498,7 +489,6 @@ export default function RequestPage() {
                   </div>
                 )}
 
-                {/* --- 🌟 UI โหมดเบิกเดี่ยว (Dropdown ค้นหาชื่อยา) --- */}
                 {requestMode === 'single' && (
                   <div className="md:col-span-2 space-y-4 bg-slate-50/50 p-6 rounded-3xl border border-slate-100">
                     <div className="flex justify-between items-center mb-2 border-b border-slate-200 pb-4">
@@ -538,7 +528,7 @@ export default function RequestPage() {
                           <div className="w-28 sm:w-32">
                             <label className="block text-xs font-bold text-slate-500 mb-1 text-center">จำนวน</label>
                             <input 
-                              type="number" min="1" value={item.amount}
+                              type="number" min="1" value={item.amount || 1}
                               onChange={(e) => updateRequestItem(index, 'amount', parseInt(e.target.value) || 1)}
                               className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 font-bold focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all outline-none text-center" 
                             />
@@ -564,15 +554,14 @@ export default function RequestPage() {
                         <Calendar size={16} className="text-blue-500"/> วันที่ทำรายการ <span className="text-red-500">*</span>
                       </label>
                       <input 
-                        type="date" value={requestForm.date}
-                        onChange={(e) => setRequestForm({...requestForm, date: e.target.value})}
+                        type="date" value={requestForm.date || ''}
+                        onChange={(e) => setRequestForm((prev: any) => ({ ...prev, date: e.target.value }))}
                         className="w-full md:w-1/2 px-4 py-3.5 rounded-xl border border-slate-200 bg-white text-slate-900 font-bold focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all outline-none" 
                       />
                     </div>
                   </div>
                 )}
 
-                {/* --- 🌟 UI โหมดเบิกยาชุด (Farrowing) --- */}
                 {requestMode === 'set' && (
                   <>
                     <div className="bg-slate-50 p-6 rounded-3xl border border-slate-200 md:col-span-2">
@@ -584,7 +573,7 @@ export default function RequestPage() {
                           <label className="block text-xs font-bold text-slate-500 mb-2">จำนวนแม่ (ตัว)</label>
                           <input 
                             type="number" min="0" value={setForm.sowCount || ''} placeholder="0"
-                            onChange={(e) => setSetForm({...setForm, sowCount: parseInt(e.target.value) || 0})}
+                            onChange={(e) => setSetForm((prev: any) => ({ ...prev, sowCount: parseInt(e.target.value) || 0 }))}
                             className="w-full px-4 py-3 rounded-xl border border-slate-200 font-bold text-center text-blue-700 focus:border-blue-500 outline-none" 
                           />
                         </div>
@@ -592,7 +581,7 @@ export default function RequestPage() {
                           <label className="block text-xs font-bold text-slate-500 mb-2">จำนวนลูก (ตัว)</label>
                           <input 
                             type="number" min="0" value={setForm.pigletCount || ''} placeholder="0"
-                            onChange={(e) => setSetForm({...setForm, pigletCount: parseInt(e.target.value) || 0})}
+                            onChange={(e) => setSetForm((prev: any) => ({ ...prev, pigletCount: parseInt(e.target.value) || 0 }))}
                             className="w-full px-4 py-3 rounded-xl border border-slate-200 font-bold text-center text-pink-600 focus:border-pink-500 outline-none" 
                           />
                         </div>
@@ -624,7 +613,7 @@ export default function RequestPage() {
                                 <td className="py-3 px-4">
                                   <div className="flex items-center justify-center gap-1.5">
                                     <input 
-                                      type="number" min="1" value={item.amount}
+                                      type="number" min="1" value={item.amount || 1}
                                       onChange={(e) => updateCalculatedAmount(idx, parseInt(e.target.value) || 1)}
                                       className="w-16 px-2 py-1.5 rounded border border-slate-200 text-center font-bold text-slate-700 outline-none focus:border-blue-500"
                                     />
@@ -654,9 +643,6 @@ export default function RequestPage() {
             </div>
           )}
 
-          {/* ==========================================
-              TAB 2: ตารางประวัติการเบิก (สถานะคำขอ)
-          ========================================== */}
           {activeTab === 'history' && (
             <div className="bg-white border border-gray-100 rounded-3xl shadow-sm overflow-hidden flex flex-col animate-in fade-in duration-500">
               
@@ -690,7 +676,6 @@ export default function RequestPage() {
                     ) : uniqueDocs.length === 0 ? (
                       <tr><td colSpan={5} className="text-center py-16 text-slate-400 font-bold">ไม่พบคำขอเบิกยา</td></tr>
                     ) : (
-                      // 🌟 ปรับให้แสดงในตารางแบบ Group By (ดึงโชว์แค่เลขบิลละ 1 แถว)
                       uniqueDocs.map((docNo: any) => {
                         const itemsInDoc = filteredHistory.filter(item => item.docNo === docNo);
                         const firstItem = itemsInDoc[0];
@@ -751,7 +736,6 @@ export default function RequestPage() {
         </div>
       </main>
 
-      {/* ================= Modal เปิดดูรายละเอียด ================= */}
       {selectedRecord && (
         <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 sm:p-6 overflow-hidden">
           <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity" onClick={() => setSelectedRecord(null)}></div>
@@ -804,7 +788,6 @@ export default function RequestPage() {
                 <div className="text-xs text-slate-500 mt-1 font-medium">{selectedRecord.department}</div>
               </div>
 
-              {/* 🌟 ปรับตารางใน Modal ให้โชว์ยาหลายรายการ */}
               <div className="bg-white rounded-3xl border border-slate-100 shadow-sm mb-6 overflow-hidden">
                 <div className="px-5 py-4 border-b border-slate-100 bg-slate-50 flex items-center gap-2">
                   <Package size={16} className="text-blue-500"/> 
@@ -878,7 +861,6 @@ export default function RequestPage() {
         </div>
       )}
 
-      {/* ================= Custom Download Modal ================= */}
       {downloadModal.isOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => downloadModal.status === 'success' && setDownloadModal(prev => ({ ...prev, isOpen: false }))}></div>
@@ -923,7 +905,6 @@ export default function RequestPage() {
         </div>
       )}
 
-      {/* Toast Notification */}
       {toast.isOpen && (
         <div className="fixed bottom-8 right-8 z-[100] animate-in slide-in-from-bottom-5 fade-in duration-300">
           <div className={`text-white px-6 py-4 rounded-2xl shadow-xl flex items-center gap-3 border ${
