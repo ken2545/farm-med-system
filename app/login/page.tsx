@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { supabase } from '../lib/supabase'; // 🌟 Import Supabase เพื่อเชื่อมฐานข้อมูล
 import { Lock, User, LogIn, ShieldCheck, Loader2, X } from 'lucide-react';
 
 export default function LoginPage() {
@@ -11,62 +12,57 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleLogin = (e: React.FormEvent) => {
+  // 🌟 เปลี่ยนเป็น async function เพื่อดึงข้อมูลจาก Supabase
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
 
-    setTimeout(() => {
-      // 1. ดึงรายชื่อผู้ใช้งานทั้งหมดที่บันทึกไว้ในระบบ
-      const savedUsers = localStorage.getItem('farmMedUsers');
-      let usersList = [];
+    try {
+      // 1. ค้นหาผู้ใช้จากตาราง users ใน Supabase
+      const { data: matchedUser, error: fetchError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('username', username)
+        .single(); // ดึงมาแค่คนเดียวที่ username ตรงกัน
 
-      if (savedUsers) {
-        usersList = JSON.parse(savedUsers);
-      } else {
-        // ถ้ายังไม่มีข้อมูลเลย ให้สร้างบัญชีตั้งต้นให้ก่อน
-        usersList = [
-          { id: 1, name: 'ผู้ดูแลระบบ (Admin)', username: 'admin', password: '1234', role: 'ผู้ดูแลระบบ (Admin)', department: 'ส่วนกลาง', status: 'เปิดใช้งาน' },
-          { id: 2, name: 'สัตวบาล (พนักงาน)', username: 'staff', password: '1234', role: 'สัตวบาล', department: 'เฟส 1 - ทุกเล้า', status: 'เปิดใช้งาน' },
-        ];
-        localStorage.setItem('farmMedUsers', JSON.stringify(usersList));
-      }
-
-      // 2. ค้นหาบัญชีที่ Username และ Password ตรงกับที่กรอกเข้ามา
-      const matchedUser = usersList.find((u: any) => u.username === username && u.password === password);
-
-      if (matchedUser) {
-        // 3. ตรวจสอบสถานะว่าโดนระงับการใช้งานหรือไม่
-        if (matchedUser.status === 'ระงับการใช้งาน') {
-          setError('บัญชีนี้ถูกระงับการใช้งาน กรุณาติดต่อผู้ดูแลระบบ');
-          setIsLoading(false);
-          return;
-        }
-
-        // 4. แยกสิทธิ์ว่าใครเป็นแอดมิน ใครเป็นพนักงานธรรมดา
-        const roleCode = matchedUser.role.includes('Admin') ? 'admin' : 'staff';
-        
-        // บันทึก Session ลงใน sessionStorage เพื่อไม่ให้แท็บอื่นตีกัน
-        sessionStorage.setItem('farmMedSession', JSON.stringify({ 
-          username: matchedUser.username, 
-          role: roleCode, 
-          name: matchedUser.name,
-          department: matchedUser.department || 'ไม่ระบุ'
-        }));
-
-        // 5. นำทางไปยังหน้าต่างตามสิทธิ์
-        if (roleCode === 'admin') {
-          router.push('/'); // แอดมินไปหน้า Dashboard
-        } else {
-          router.push('/request'); // พนักงานไปหน้าเบิกยา
-        }
-        
-      } else {
-        // ถ้าหาไม่เจอ แสดงว่าพิมพ์ผิด
+      // 2. ถ้าหาไม่เจอ หรือ พิมพ์รหัสผ่านผิด
+      if (fetchError || !matchedUser || matchedUser.password !== password) {
         setError('ชื่อผู้ใช้งานหรือรหัสผ่านไม่ถูกต้อง');
         setIsLoading(false);
+        return;
       }
-    }, 800); 
+
+      // 3. ตรวจสอบสถานะว่าโดนระงับการใช้งานหรือไม่
+      if (matchedUser.status === 'ระงับการใช้งาน') {
+        setError('บัญชีนี้ถูกระงับการใช้งาน กรุณาติดต่อผู้ดูแลระบบ');
+        setIsLoading(false);
+        return;
+      }
+
+      // 4. แยกสิทธิ์ว่าใครเป็นแอดมิน ใครเป็นพนักงานธรรมดา
+      const roleCode = matchedUser.role.includes('Admin') ? 'admin' : 'staff';
+      
+      // บันทึก Session ลงใน sessionStorage เพื่อใช้ยืนยันตัวตนในหน้าอื่นๆ
+      sessionStorage.setItem('farmMedSession', JSON.stringify({ 
+        username: matchedUser.username, 
+        role: roleCode, 
+        name: matchedUser.name,
+        department: matchedUser.department || 'ไม่ระบุ'
+      }));
+
+      // 5. นำทางไปยังหน้าต่างตามสิทธิ์
+      if (roleCode === 'admin') {
+        router.push('/'); // แอดมินไปหน้า Dashboard
+      } else {
+        router.push('/request'); // พนักงานไปหน้าเบิกยา
+      }
+      
+    } catch (err) {
+      console.error('Login error:', err);
+      setError('เกิดข้อผิดพลาดในการเชื่อมต่อระบบ');
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -79,7 +75,7 @@ export default function LoginPage() {
       {/* Main Container */}
       <div className="bg-white w-full max-w-5xl min-h-[600px] rounded-[2.5rem] shadow-2xl flex flex-col lg:flex-row overflow-hidden relative z-10 border border-white">
         
-        {/* Left Side: Branding (สีฟ้า) - 🌟 ใส่ hidden lg:flex เพื่อซ่อนในหน้าจอมือถือหรือจอย่อ */}
+        {/* Left Side: Branding (สีฟ้า) */}
         <div className="hidden lg:flex lg:w-5/12 bg-gradient-to-br from-blue-600 to-indigo-800 p-8 sm:p-12 flex-col justify-center text-white relative overflow-hidden">
           
           <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-blue-500/30 rounded-full blur-3xl"></div>
