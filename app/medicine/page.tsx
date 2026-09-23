@@ -83,14 +83,13 @@ export default function MedicinePage() {
       const currentStatus = formData.stock < 10 ? 'สต๊อกต่ำ' : 'ปกติ';
 
       if (modalMode === 'add') {
+        // 🌟 แก้ไข: ลบ lot และ expiry ออก เพราะในตารางไม่มีคอลัมน์นี้
         const { error } = await supabase.from('inventory').insert([{
           name: formData.name,
           category: formData.category,
           unit: formData.unit,
           stock: formData.stock,
-          status: currentStatus,
-          lot: '-',
-          expiry: '-'
+          status: currentStatus
         }]);
         if (error) throw error;
         showToast('เพิ่มรายการยาสำเร็จ!', 'success');
