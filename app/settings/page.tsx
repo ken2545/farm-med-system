@@ -1,13 +1,13 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase'; // 🌟 Import Supabase เพื่อดึงข้อมูลยา
+import { supabase } from '../../lib/supabase'; // 🌟 Import Supabase
 import Sidebar from '../../components/Sidebar';
 import Header from '../../components/Header';
 import { 
   Building2, Users, Layers, Pill, Bell, HardDrive, 
   User, CheckCircle2, ChevronRight, X, Save, Plus, 
-  ToggleLeft, ToggleRight, DownloadCloud, Edit, Trash2, ArrowLeft, Key, Lock, MapPin, Home, Calculator, ChevronDown
+  ToggleLeft, ToggleRight, DownloadCloud, Edit, Trash2, ArrowLeft, Key, Lock, MapPin, Home, Calculator, ChevronDown, Loader2
 } from 'lucide-react';
 
 export default function SettingsPage() {
@@ -29,11 +29,27 @@ export default function SettingsPage() {
     department: 'กำลังโหลด...'
   });
 
-  // 🌟 State สำหรับเก็บรายชื่อยาที่ดึงจากคลัง
   const [inventoryItems, setInventoryItems] = useState<any[]>([]);
 
+  // 🌟 State สำหรับเก็บรายชื่อพนักงานจาก Supabase
+  const [usersList, setUsersList] = useState<any[]>([]);
+  const [isSavingUser, setIsSavingUser] = useState(false);
+
+  // 🌟 1. ฟังก์ชันดึงข้อมูลผู้ใช้จากฐานข้อมูล
+  const fetchUsers = async () => {
+    try {
+      const { data, error } = await supabase.from('users').select('*').order('id');
+      if (data && !error) {
+        setUsersList(data);
+        localStorage.setItem('farmMedUsers', JSON.stringify(data)); // แบ็คอัปให้หน้า Login ใช้
+      }
+    } catch (err) {
+      console.error('Error fetching users:', err);
+    }
+  };
+
   useEffect(() => {
-    // 1. โหลดข้อมูลฟาร์ม
+    // โหลดข้อมูลฟาร์ม
     const savedFarmName = localStorage.getItem('farmName');
     const savedFarmAddress = localStorage.getItem('farmAddress');
     const savedFarmPhone = localStorage.getItem('farmPhone');
@@ -46,7 +62,7 @@ export default function SettingsPage() {
       }));
     }
 
-    // 2. โหลดข้อมูล Session และเปรียบเทียบหาข้อมูลล่าสุด
+    // โหลดข้อมูล Session
     const sessionStr = sessionStorage.getItem('farmMedSession');
     if (sessionStr) {
       const session = JSON.parse(sessionStr);
@@ -58,10 +74,9 @@ export default function SettingsPage() {
         department: session.department || 'พนักงานฟาร์ม'
       };
       
-      // ดึงข้อมูลล่าสุดจาก farmMedUsers มาบังคับอัปเดต Session
       if (savedUsers) {
-        const usersList = JSON.parse(savedUsers);
-        const matchedUser = usersList.find((u: any) => u.username === session.username);
+        const usersListLocal = JSON.parse(savedUsers);
+        const matchedUser = usersListLocal.find((u: any) => u.username === session.username);
         if (matchedUser) {
           displayData = {
             name: matchedUser.name,
@@ -69,7 +84,6 @@ export default function SettingsPage() {
             department: matchedUser.department || matchedUser.role
           };
           
-          // ซิงค์ข้อมูลล่าสุดกลับเข้า Session
           sessionStorage.setItem('farmMedSession', JSON.stringify({
             ...session,
             name: matchedUser.name,
@@ -88,18 +102,18 @@ export default function SettingsPage() {
       });
     }
 
-    // 🌟 3. ดึงข้อมูลรายชื่อยาจากตาราง Inventory ใน Supabase
+    // ดึงข้อมูลยา
     const fetchInventory = async () => {
       try {
         const { data } = await supabase.from('inventory').select('name, unit').order('name');
-        if (data) {
-          setInventoryItems(data);
-        }
+        if (data) setInventoryItems(data);
       } catch (error) {
         console.error('Error fetching inventory:', error);
       }
     };
+    
     fetchInventory();
+    fetchUsers(); // 🌟 เรียกใช้ฟังก์ชันดึงผู้ใช้จาก DB ตอนเปิดหน้าจอ
 
   }, []);
 
@@ -124,23 +138,6 @@ export default function SettingsPage() {
 
   const [notifSettings, setNotifSettings] = useState({ line: true, email: false, lowStock: true, newRequest: true });
   
-  const [usersList, setUsersList] = useState([
-    { id: 1, name: 'นายสมชาย ใจดี', username: 'somchai_ad', password: '••••••', role: 'ผู้ดูแลระบบ (Admin)', department: 'ส่วนกลาง', status: 'เปิดใช้งาน' },
-    { id: 2, name: 'นพดล ศรีสุข', username: 'nopadol_vt', password: '••••••', role: 'สัตวบาล', department: 'เฟส 1 - ทุกเล้า', status: 'เปิดใช้งาน' },
-    { id: 3, name: 'ธนกฤต มั่นคง', username: 'thanakrit_fm', password: '••••••', role: 'พนักงานฟาร์ม', department: 'เฟส 2 - เล้า Finisher', status: 'ระงับการใช้งาน' },
-  ]);
-
-  useEffect(() => {
-    const savedUsers = localStorage.getItem('farmMedUsers');
-    if (savedUsers) {
-      try {
-        setUsersList(JSON.parse(savedUsers));
-      } catch (e) {
-        console.error(e);
-      }
-    }
-  }, []);
-
   const [userView, setUserView] = useState<'list' | 'form'>('list');
   const [editingUserId, setEditingUserId] = useState<number | null>(null);
   
@@ -188,71 +185,99 @@ export default function SettingsPage() {
     setUserView('form');
   };
 
-  const handleSaveUser = () => {
+  // 🌟 2. ฟังก์ชันบันทึก ยิงเข้าฐานข้อมูล Supabase
+  const handleSaveUser = async () => {
     if (!userForm.name.trim() || !userForm.username.trim() || !userForm.phase) {
       setToast({ isOpen: true, message: 'กรุณากรอกข้อมูลให้ครบถ้วน (ชื่อ, Username และ เฟส)' });
       setTimeout(() => setToast({ isOpen: false, message: '' }), 3000);
       return;
     }
 
+    setIsSavingUser(true);
+
     const finalDepartment = userForm.phase === 'ส่วนกลาง'
       ? 'ส่วนกลาง'
       : `${userForm.phase}${userForm.barn && userForm.barn !== 'ทุกเล้า' ? ` - ${userForm.barn}` : ' - ทุกเล้า'}`;
 
     const dataToSave = { 
-      ...userForm, 
+      name: userForm.name,
+      username: userForm.username,
+      password: userForm.password,
+      role: userForm.role,
+      phase: userForm.phase,
+      barn: userForm.barn,
+      status: userForm.status,
       department: finalDepartment 
     };
 
-    let updatedUsers;
-    if (editingUserId) {
-      updatedUsers = usersList.map(u => u.id === editingUserId ? { ...u, ...dataToSave } : u);
-      setToast({ isOpen: true, message: 'อัปเดตข้อมูลผู้ใช้สำเร็จ!' });
+    try {
+      if (editingUserId) {
+        // อัปเดตของเดิม
+        const { error } = await supabase.from('users').update(dataToSave).eq('id', editingUserId);
+        if (error) throw error;
+        setToast({ isOpen: true, message: 'อัปเดตข้อมูลผู้ใช้สำเร็จ!' });
 
-      const sessionStr = sessionStorage.getItem('farmMedSession');
-      if (sessionStr) {
-        const session = JSON.parse(sessionStr);
-        const originalUser = usersList.find(u => u.id === editingUserId);
-        
-        if (originalUser && originalUser.username === session.username) {
-          sessionStorage.setItem('farmMedSession', JSON.stringify({
-            ...session,
-            username: dataToSave.username,
-            name: dataToSave.name,
-            role: dataToSave.role.includes('Admin') ? 'admin' : 'staff',
-            department: dataToSave.department
-          }));
+        const sessionStr = sessionStorage.getItem('farmMedSession');
+        if (sessionStr) {
+          const session = JSON.parse(sessionStr);
+          const originalUser = usersList.find(u => u.id === editingUserId);
+          
+          if (originalUser && originalUser.username === session.username) {
+            sessionStorage.setItem('farmMedSession', JSON.stringify({
+              ...session,
+              username: dataToSave.username,
+              name: dataToSave.name,
+              role: dataToSave.role.includes('Admin') ? 'admin' : 'staff',
+              department: dataToSave.department
+            }));
 
-          setCurrentUser({
-            name: dataToSave.name,
-            role: dataToSave.role === 'ผู้ดูแลระบบ (Admin)' ? 'Admin / ผู้จัดการ' : dataToSave.role,
-            department: dataToSave.department
-          });
-
-          window.dispatchEvent(new Event('sessionUpdated'));
+            setCurrentUser({
+              name: dataToSave.name,
+              role: dataToSave.role === 'ผู้ดูแลระบบ (Admin)' ? 'Admin / ผู้จัดการ' : dataToSave.role,
+              department: dataToSave.department
+            });
+            window.dispatchEvent(new Event('sessionUpdated'));
+          }
         }
+      } else {
+        // เพิ่มคนใหม่
+        const { error } = await supabase.from('users').insert([dataToSave]);
+        if (error) throw error;
+        setToast({ isOpen: true, message: 'เพิ่มผู้ใช้ใหม่สำเร็จ!' });
       }
 
-    } else {
-      updatedUsers = [...usersList, { id: Date.now(), ...dataToSave }];
-      setToast({ isOpen: true, message: 'เพิ่มผู้ใช้ใหม่สำเร็จ!' });
-    }
+      await fetchUsers(); // ดึงข้อมูลอัปเดตล่าสุดมาโชว์
+      setTimeout(() => setToast({ isOpen: false, message: '' }), 3000);
+      setUserView('list');
 
-    setUsersList(updatedUsers);
-    localStorage.setItem('farmMedUsers', JSON.stringify(updatedUsers));
-    
-    setTimeout(() => setToast({ isOpen: false, message: '' }), 3000);
-    setUserView('list');
+    } catch (err) {
+      console.error(err);
+      setToast({ isOpen: true, message: 'เกิดข้อผิดพลาดในการบันทึกข้อมูล' });
+      setTimeout(() => setToast({ isOpen: false, message: '' }), 3000);
+    } finally {
+      setIsSavingUser(false);
+    }
   };
 
-  const handleDeleteUser = () => {
+  // 🌟 3. ฟังก์ชันลบ ยิงเข้าฐานข้อมูล Supabase
+  const handleDeleteUser = async () => {
     if(confirm('คุณแน่ใจหรือไม่ที่จะลบผู้ใช้งานรายนี้?')) {
-      const updatedUsers = usersList.filter(u => u.id !== editingUserId);
-      setUsersList(updatedUsers);
-      localStorage.setItem('farmMedUsers', JSON.stringify(updatedUsers));
-      setUserView('list');
-      setToast({ isOpen: true, message: 'ลบผู้ใช้งานสำเร็จ!' });
-      setTimeout(() => setToast({ isOpen: false, message: '' }), 3000);
+      setIsSavingUser(true);
+      try {
+        const { error } = await supabase.from('users').delete().eq('id', editingUserId);
+        if (error) throw error;
+
+        await fetchUsers();
+        setUserView('list');
+        setToast({ isOpen: true, message: 'ลบผู้ใช้งานสำเร็จ!' });
+        setTimeout(() => setToast({ isOpen: false, message: '' }), 3000);
+      } catch (err) {
+        console.error(err);
+        setToast({ isOpen: true, message: 'เกิดข้อผิดพลาดในการลบ' });
+        setTimeout(() => setToast({ isOpen: false, message: '' }), 3000);
+      } finally {
+        setIsSavingUser(false);
+      }
     }
   };
 
@@ -598,8 +623,8 @@ export default function SettingsPage() {
 
                       {editingUserId && (
                         <div className="pt-3 border-t border-slate-200 text-center">
-                          <button onClick={handleDeleteUser} className="inline-flex items-center gap-2 text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 px-4 py-2 rounded-xl text-xs font-bold transition-colors">
-                            <Trash2 size={15} /> ลบผู้ใช้งานนี้
+                          <button onClick={handleDeleteUser} disabled={isSavingUser} className="inline-flex items-center gap-2 text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 px-4 py-2 rounded-xl text-xs font-bold transition-colors disabled:opacity-50">
+                            {isSavingUser ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />} ลบผู้ใช้งานนี้
                           </button>
                         </div>
                       )}
@@ -608,7 +633,6 @@ export default function SettingsPage() {
                 </>
               )}
 
-              {/* 🌟 ส่วนที่แก้ไขเรื่องการดึงยาจากคลังมาแสดงในตัวเลือก */}
               {activeModal === 'ประเภทการใช้ยา' && (
                 <div className="space-y-4">
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
@@ -642,7 +666,6 @@ export default function SettingsPage() {
                           </select>
                         </div>
                         
-                        {/* 🌟 ช่องเลือกชื่อยา (แบบ Dropdown) แก้ปัญหาข้อมูลไม่ขึ้น */}
                         <div className="lg:col-span-3">
                           <label className="text-xs font-bold text-slate-500 mb-1 block lg:hidden">ชื่อยา/วัคซีน</label>
                           <div className="relative">
@@ -652,7 +675,6 @@ export default function SettingsPage() {
                                 const val = e.target.value;
                                 const matchedItem = inventoryItems.find(inv => inv.name === val);
                                 
-                                // 🌟 อัปเดตทั้ง 'ชื่อ' และ 'หน่วย' พร้อมกัน ป้องกัน State ทับกัน
                                 setMedFormulas(prev => prev.map(f => 
                                   f.id === med.id 
                                     ? { ...f, name: val, unit: matchedItem?.unit || f.unit } 
@@ -666,7 +688,6 @@ export default function SettingsPage() {
                                 <option key={idx} value={item.name}>{item.name}</option>
                               ))}
                             </select>
-                            {/* ไอคอนลูกศรชี้ลงสำหรับ Dropdown */}
                             <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                           </div>
                         </div>
@@ -742,8 +763,9 @@ export default function SettingsPage() {
                     <button onClick={() => setUserView('list')} className="flex-1 bg-slate-50 border border-slate-200 text-slate-700 hover:bg-slate-100 py-3.5 rounded-2xl font-bold text-sm transition-colors shadow-sm">
                       ยกเลิก
                     </button>
-                    <button onClick={handleSaveUser} className="flex-[2] bg-green-600 hover:bg-green-700 text-white py-3.5 rounded-2xl font-bold text-sm transition-all shadow-lg shadow-green-500/30 flex items-center justify-center gap-2">
-                      <Save size={18} /> บันทึกข้อมูลผู้ใช้
+                    <button onClick={handleSaveUser} disabled={isSavingUser} className="flex-[2] bg-green-600 hover:bg-green-700 text-white py-3.5 rounded-2xl font-bold text-sm transition-all shadow-lg shadow-green-500/30 flex items-center justify-center gap-2 disabled:opacity-70">
+                      {isSavingUser ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />} 
+                      {isSavingUser ? 'กำลังบันทึก...' : 'บันทึกข้อมูลผู้ใช้'}
                     </button>
                   </>
                 ) : (
