@@ -25,7 +25,6 @@ export default function RequestPage() {
 
   const [requestMode, setRequestMode] = useState<'single' | 'set'>('single');
   
-  // 🌟 เติม <any> เพื่อแก้ Error ของ Vercel
   const [requestForm, setRequestForm] = useState<any>({
     requester: '', department: '', date: new Date().toISOString().split('T')[0]
   });
@@ -105,7 +104,6 @@ export default function RequestPage() {
     }
   };
 
-  // 🌟 ปรับแก้ field ให้เป็น string เพื่อแก้ Error TS2322
   const updateRequestItem = (index: number, field: string, value: any) => {
     const newItems = [...requestItems];
     newItems[index] = { ...newItems[index], [field]: value };
@@ -119,7 +117,7 @@ export default function RequestPage() {
       const items: any[] = [];
 
       medFormulas.forEach(med => {
-        let calculatedPacks = 0; // ประกาศตัวแปรรับค่าก่อนเพื่อแก้ Error
+        let calculatedPacks = 0;
 
         if (med.target === 'แม่' && sows > 0) {
           if (med.calcType === 'ratePerHead') {
@@ -162,7 +160,6 @@ export default function RequestPage() {
       
       const docNo = `REQ-${(new Date().getFullYear() + 543).toString().slice(-2)}${(new Date().getMonth() + 1).toString().padStart(2, '0')}-${Math.floor(1000 + Math.random() * 9000)}`;
 
-      // 🌟 เติม : any[] เพื่อแก้ Error Implicit Any
       let insertData: any[] = [];
 
       if (requestMode === 'single') {
@@ -211,6 +208,25 @@ export default function RequestPage() {
 
       const { error: insertError } = await supabase.from('requests').insert(insertData);
       if (insertError) throw insertError;
+
+      // 🌟 สคริปต์ส่งอีเมลแจ้งเตือน (ทำงานเบื้องหลัง)
+      try {
+        const medSummary = insertData.map(item => `${item.med_name} (${item.amount} ${item.unit})`).join(', ');
+        await fetch('/api/send-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            staffName: requestForm.requester,
+            medName: medSummary,
+            quantity: insertData.length > 1 ? 'รวม' : insertData[0].amount,
+            unit: insertData.length > 1 ? `${insertData.length} รายการ` : insertData[0].unit,
+            barn: requestForm.department || 'พนักงานฟาร์ม'
+          }),
+        });
+      } catch (emailErr) {
+        console.error('Failed to send email:', emailErr);
+      }
+      // 🌟 สิ้นสุดระบบอีเมล
 
       showToast('ส่งคำขอเบิกยาสำเร็จ! (สถานะ: รออนุมัติ)', 'success');
       
