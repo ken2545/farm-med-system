@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation'; // 🌟 เพิ่ม import useRouter
 import { supabase } from '../lib/supabase'; // ตรวจสอบ path ให้ตรงกับโปรเจกต์ของคุณ
 import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
@@ -11,6 +12,8 @@ import {
 import Link from 'next/link';
 
 export default function DashboardPage() {
+  const router = useRouter(); // 🌟 เรียกใช้งาน router
+  
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -23,6 +26,14 @@ export default function DashboardPage() {
   });
   const [inventorySnapshot, setInventorySnapshot] = useState<any[]>([]);
   const [recentActivities, setRecentActivities] = useState<any[]>([]);
+
+  // 🌟 ระบบดักจับการล็อกอิน (Auth Guard)
+  useEffect(() => {
+    const session = sessionStorage.getItem('farmMedSession');
+    if (!session) {
+      router.push('/login'); // ถ้าไม่มีเซสชัน ให้เด้งไปหน้า login ทันที
+    }
+  }, [router]);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -69,7 +80,10 @@ export default function DashboardPage() {
       }
     };
 
-    fetchDashboardData();
+    // เช็คก่อนว่ามีเซสชันถึงจะดึงข้อมูล เพื่อป้องกัน Error กรณีโดนเตะไปหน้า Login
+    if (sessionStorage.getItem('farmMedSession')) {
+      fetchDashboardData();
+    }
   }, []);
 
   return (
