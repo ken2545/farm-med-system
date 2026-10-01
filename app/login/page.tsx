@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '../lib/supabase'; // 🌟 Import Supabase เพื่อเชื่อมฐานข้อมูล
+import { supabase } from '../../lib/supabase'; // 🌟 ตำแหน่ง Import ถูกต้องแล้ว (ถอยหลัง 2 ขั้น)
 import { Lock, User, LogIn, ShieldCheck, Loader2, X } from 'lucide-react';
 
 export default function LoginPage() {
@@ -12,7 +12,7 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // 🌟 เปลี่ยนเป็น async function เพื่อดึงข้อมูลจาก Supabase
+  // ฟังก์ชันล็อกอินผ่าน Supabase
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -24,7 +24,7 @@ export default function LoginPage() {
         .from('users')
         .select('*')
         .eq('username', username)
-        .single(); // ดึงมาแค่คนเดียวที่ username ตรงกัน
+        .single(); 
 
       // 2. ถ้าหาไม่เจอ หรือ พิมพ์รหัสผ่านผิด
       if (fetchError || !matchedUser || matchedUser.password !== password) {
@@ -43,7 +43,7 @@ export default function LoginPage() {
       // 4. แยกสิทธิ์ว่าใครเป็นแอดมิน ใครเป็นพนักงานธรรมดา
       const roleCode = matchedUser.role.includes('Admin') ? 'admin' : 'staff';
       
-      // บันทึก Session ลงใน sessionStorage เพื่อใช้ยืนยันตัวตนในหน้าอื่นๆ
+      // บันทึก Session ลงใน sessionStorage
       sessionStorage.setItem('farmMedSession', JSON.stringify({ 
         username: matchedUser.username, 
         role: roleCode, 
@@ -94,7 +94,7 @@ export default function LoginPage() {
         {/* Right Side: Login Form (ฟอร์มกรอกรหัส) */}
         <div className="lg:w-7/12 p-8 sm:p-12 lg:p-16 flex flex-col justify-center bg-white">
           
-          {/* โลโก้สำหรับหน้าจอมือถือ (จะซ่อนในหน้าจอคอม) */}
+          {/* โลโก้สำหรับหน้าจอมือถือ */}
           <div className="lg:hidden flex items-center gap-3 mb-8">
             <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-md">
               <ShieldCheck size={24} />
