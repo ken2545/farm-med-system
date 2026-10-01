@@ -56,6 +56,7 @@ export default function InventoryPage() {
                   time: dTime,
                   status: 'อนุมัติแล้ว',
                   approver: 'Admin (ผู้จัดการ)',
+                  signature: req.signature, // 🌟 ดึงข้อมูลลายเซ็นมาด้วย
                   items: []
                 };
               }
@@ -201,7 +202,19 @@ export default function InventoryPage() {
             <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; font-weight: bold;">${bill.approver}</td>
           </tr>
         </table>
+        
+        <!-- 🌟 เพิ่มส่วนสำหรับแสดงลายเซ็นตรงนี้ -->
+        ${bill.status === 'อนุมัติแล้ว' && bill.signature ? `
+        <div style="margin-top: 40px; text-align: right; padding-right: 20px;">
+          <div style="display: inline-block; text-align: center;">
+            <img src="${bill.signature}" alt="ลายมือชื่อผู้อนุมัติ" style="height: 90px; object-fit: contain; border-bottom: 1px dotted #94a3b8; margin-bottom: 10px;" />
+            <p style="font-size: 14px; color: #334155; margin: 0; font-weight: bold;">( ${bill.approver} )</p>
+            <p style="font-size: 12px; color: #64748b; margin: 5px 0 0 0;">ผู้อนุมัติ</p>
+          </div>
+        </div>
+        ` : ''}
       </div>
+
       <div style="text-align: center; margin-top: 50px; color: #94a3b8; font-size: 14px;">
         <p>เอกสารฉบับนี้ถูกสร้างโดยระบบอัตโนมัติ (FarmMed System)</p>
       </div>
@@ -357,7 +370,6 @@ export default function InventoryPage() {
                         </span>
                       </div>
                       
-                      {/* 🌟 แสดงจำนวนรายการยารวมในบิล แทนที่จะโชว์แค่ยาตัวแรก */}
                       <div className="text-sm font-extrabold text-blue-600 flex items-center gap-1.5">
                         <Package size={14}/> เบิกยาจำนวน <span className="underline decoration-blue-300">{bill.items.length}</span> รายการ
                       </div>
@@ -432,7 +444,6 @@ export default function InventoryPage() {
                 </div>
               </div>
 
-              {/* 🌟 ตารางแสดงรายการยาในบิล */}
               <div className="bg-blue-50/30 rounded-2xl border border-blue-100 overflow-hidden">
                 <div className="bg-blue-50 p-3 border-b border-blue-100">
                   <span className="text-[11px] font-extrabold text-blue-600 uppercase tracking-wider">รายการยาที่เบิกทั้งหมด ({selectedBill.items.length})</span>

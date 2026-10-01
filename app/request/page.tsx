@@ -209,7 +209,6 @@ export default function RequestPage() {
       const { error: insertError } = await supabase.from('requests').insert(insertData);
       if (insertError) throw insertError;
 
-      // 🌟 สคริปต์ส่งอีเมลแจ้งเตือน (ทำงานเบื้องหลัง)
       try {
         const medSummary = insertData.map(item => `${item.med_name} (${item.amount} ${item.unit})`).join(', ');
         await fetch('/api/send-email', {
@@ -226,7 +225,6 @@ export default function RequestPage() {
       } catch (emailErr) {
         console.error('Failed to send email:', emailErr);
       }
-      // 🌟 สิ้นสุดระบบอีเมล
 
       showToast('ส่งคำขอเบิกยาสำเร็จ! (สถานะ: รออนุมัติ)', 'success');
       
@@ -266,7 +264,8 @@ export default function RequestPage() {
       status: req.status || 'รออนุมัติ',
       approver: req.status === 'อนุมัติแล้ว' ? 'Admin (ผู้จัดการ)' : 'รอผู้จัดการพิจารณา',
       date: dDate,
-      time: dTime
+      time: dTime,
+      signature: req.signature // 🌟 ดึงข้อมูลลายเซ็นมาด้วย
     };
   });
 
@@ -385,7 +384,19 @@ export default function RequestPage() {
             <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; font-weight: bold;">${record.approver}</td>
           </tr>
         </table>
+        
+        <!-- 🌟 เพิ่มส่วนสำหรับแสดงลายเซ็นตรงนี้ -->
+        ${record.status === 'อนุมัติแล้ว' && record.signature ? `
+        <div style="margin-top: 40px; text-align: right; padding-right: 20px;">
+          <div style="display: inline-block; text-align: center;">
+            <img src="${record.signature}" alt="ลายมือชื่อผู้อนุมัติ" style="height: 90px; object-fit: contain; border-bottom: 1px dotted #94a3b8; margin-bottom: 10px;" />
+            <p style="font-size: 14px; color: #334155; margin: 0; font-weight: bold;">( ${record.approver} )</p>
+            <p style="font-size: 12px; color: #64748b; margin: 5px 0 0 0;">ผู้อนุมัติ</p>
+          </div>
+        </div>
+        ` : ''}
       </div>
+
       <div style="text-align: center; margin-top: 50px; color: #94a3b8; font-size: 14px;">
         <p>เอกสารฉบับนี้ถูกสร้างโดยระบบอัตโนมัติ (FarmMed System)</p>
       </div>
