@@ -4,11 +4,11 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 import Sidebar from '../../components/Sidebar';
 import Header from '../../components/Header';
-import SignatureCanvas from 'react-signature-canvas'; // 🌟 Import เครื่องมือวาดลายเซ็น
+import SignatureCanvas from 'react-signature-canvas';
 import { 
   Info, Bell, FileEdit, CheckSquare, Search, 
   X, CheckCircle2, XCircle, Loader2, Package, UserCheck, 
-  AlertTriangle, Calendar, ListChecks, FileText, PenLine, Eraser
+  AlertTriangle, Calendar, ListChecks, FileText, PenLine, Eraser, Lock
 } from 'lucide-react';
 
 export default function DeductPage() {
@@ -23,7 +23,6 @@ export default function DeductPage() {
   const [selectedGroup, setSelectedGroup] = useState<any[] | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   
-  // 🌟 สร้างตัวแปรอ้างอิงไปยังกระดานเซ็นชื่อ
   const sigCanvas = useRef<any>(null);
 
   const fetchData = async () => {
@@ -61,7 +60,6 @@ export default function DeductPage() {
   const handleApprove = async () => {
     if (!selectedGroup || selectedGroup.length === 0) return;
 
-    // 🌟 เช็คว่ามีการเซ็นชื่อหรือยังก่อนกดอนุมัติ
     if (sigCanvas.current?.isEmpty()) {
       showToast('กรุณาเซ็นชื่อเพื่อยืนยันการอนุมัติ!', 'error');
       return;
@@ -70,7 +68,6 @@ export default function DeductPage() {
     setIsProcessing(true);
 
     try {
-      // 🌟 แปลงลายเซ็นบนกระดานให้เป็นโค้ดรูปภาพ (Base64)
       const signatureData = sigCanvas.current.getTrimmedCanvas().toDataURL('image/png');
 
       for (const req of selectedGroup) {
@@ -96,7 +93,6 @@ export default function DeductPage() {
           .eq('id', invData.id);
         if (invError) throw invError;
 
-        // 🌟 อัปเดตสถานะคำขอ พร้อมกับบันทึกลายเซ็นลงฐานข้อมูล
         const { error: reqError } = await supabase
           .from('requests')
           .update({ status: 'อนุมัติแล้ว', signature: signatureData }) 
@@ -185,16 +181,6 @@ export default function DeductPage() {
               </div>
             </div>
 
-            <div className="bg-blue-50/50 border border-blue-100 rounded-2xl p-5 flex gap-4 items-start mb-6">
-              <div className="text-blue-500 mt-0.5"><Info size={22} /></div>
-              <div>
-                <h4 className="font-extrabold text-slate-800 text-sm mb-1">คำแนะนำในการพิจารณาอนุมัติ</h4>
-                <p className="text-xs text-slate-600 leading-relaxed font-medium">
-                  กรุณาตรวจสอบความถูกต้องของ <span className="font-bold underline text-slate-800">รายการยา</span> และ <span className="font-bold underline text-slate-800">จำนวนที่ขอเบิก</span> ให้ครบถ้วน และลงลายมือชื่อก่อนกดอนุมัติ ระบบจะทำการตัดสต๊อกโดยอัตโนมัติ 
-                </p>
-              </div>
-            </div>
-
             <div className="bg-white border border-slate-100 rounded-3xl shadow-sm overflow-hidden flex flex-col animate-in fade-in duration-500">
               <div className="p-5 border-b border-slate-100 flex items-center gap-3 bg-slate-50/30">
                 <div className="w-8 h-8 rounded-full bg-orange-100 text-orange-500 flex items-center justify-center">
@@ -266,140 +252,165 @@ export default function DeductPage() {
         </div>
       </main>
 
-      {/* ================= MODAL: ตรวจสอบและอนุมัติ ================= */}
+      {/* ================= MODAL: ตรวจสอบและอนุมัติ (อัปเดตลายเซ็น 2 ฝั่ง ซ้าย-ขวา) ================= */}
       {selectedGroup && selectedGroup.length > 0 && (
         <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 sm:p-6 overflow-hidden">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onClick={() => !isProcessing && setSelectedGroup(null)}></div>
           
-          <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-lg relative z-10 animate-in zoom-in-95 duration-200 flex flex-col max-h-[95vh] overflow-hidden">
+          <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-5xl relative z-10 animate-in zoom-in-95 duration-200 flex flex-col max-h-[95vh] overflow-hidden">
             
-            <div className="p-6 flex justify-between items-center relative flex-shrink-0 border-b border-slate-100">
-              <div className="relative z-10">
-                <h3 className="font-extrabold text-xl tracking-tight text-slate-800">ตรวจสอบคำขอเบิก</h3>
-                <p className="text-slate-500 text-xs mt-1 font-medium flex items-center gap-1.5">
-                  <FileText size={12}/> เลขที่: {selectedGroup[0].doc_no}
-                </p>
+            {/* Header */}
+            <div className="p-5 flex justify-between items-center relative flex-shrink-0 border-b border-slate-100 bg-white">
+              <div className="flex items-center gap-3">
+                <div className="text-blue-600">
+                  <FileEdit size={22} strokeWidth={2.5}/>
+                </div>
+                <h3 className="font-extrabold text-lg text-slate-800 tracking-tight">ตรวจสอบและอนุมัติเอกสาร</h3>
               </div>
-              <button onClick={() => setSelectedGroup(null)} disabled={isProcessing} className="relative z-10 text-slate-400 hover:bg-slate-100 p-2 rounded-full transition-colors">
+              <button onClick={() => setSelectedGroup(null)} disabled={isProcessing} className="text-slate-400 hover:bg-slate-100 p-2 rounded-full transition-colors">
                 <X size={20} />
               </button>
             </div>
 
-            <div className="p-6 flex-1 overflow-y-auto space-y-5">
+            {/* Body - แบ่ง 2 ฝั่ง (ซ้าย-ขวา) */}
+            <div className="flex flex-col md:flex-row flex-1 overflow-y-auto bg-white">
               
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
-                  <span className="flex items-center gap-1.5 text-[11px] font-bold text-slate-400 uppercase mb-1"><UserCheck size={14}/> ผู้ขอเบิก</span>
-                  <span className="font-bold text-slate-800 block text-sm">{selectedGroup[0].requester}</span>
-                  <span className="text-[11px] text-slate-500 font-medium">{selectedGroup[0].department}</span>
-                </div>
-                <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
-                  <span className="flex items-center gap-1.5 text-[11px] font-bold text-slate-400 uppercase mb-1"><Calendar size={14}/> วันที่ทำรายการ</span>
-                  <span className="font-bold text-slate-800 block text-sm">{selectedGroup[0].request_date.split(' ')[0]}</span>
-                  <span className="text-[11px] text-slate-500 font-medium">{selectedGroup[0].request_date.split(' ')[1]} {selectedGroup[0].request_date.split(' ')[2]}</span>
-                </div>
-              </div>
-
-              {/* ตารางแสดงรายการยาในบิล */}
-              <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-                <div className="bg-slate-50 p-3 border-b border-slate-200 flex items-center gap-2 text-slate-700">
-                  <ListChecks size={16} /> <span className="font-extrabold text-sm">รายการยาทั้งหมด ({selectedGroup.length})</span>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-sm">
-                    <thead className="bg-white border-b border-slate-100">
-                      <tr className="text-slate-400 font-semibold text-[10px] uppercase tracking-wider">
-                        <th className="px-4 py-2.5">ชื่อยา/วัคซีน</th>
-                        <th className="px-4 py-2.5 text-center">ขอเบิก</th>
-                        <th className="px-4 py-2.5 text-center">คลัง</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-50 bg-white">
-                      {selectedGroup.map((req, idx) => {
-                        const invItem = inventory.find(inv => inv.name === req.med_name);
-                        const currentStock = invItem ? invItem.stock : 0;
-                        const isEnough = currentStock >= req.amount;
-
-                        return (
-                          <tr key={req.id}>
-                            <td className="px-4 py-2.5 font-bold text-slate-800">{req.med_name}</td>
-                            <td className="px-4 py-2.5 text-center">
-                              <span className="font-black text-blue-600">{req.amount}</span> 
-                              <span className="text-[10px] text-slate-500 font-bold ml-1">{req.unit}</span>
-                            </td>
-                            <td className="px-4 py-2.5 text-center">
-                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold ${
-                                isEnough ? 'bg-green-50 text-green-600' : 'bg-red-100 text-red-600 animate-pulse'
-                              }`}>
-                                {!isEnough && <AlertTriangle size={10}/>}
-                                {currentStock}
-                              </span>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-              
-              {!isAllStockEnough && (
-                <div className="bg-red-50 text-red-600 p-3 rounded-xl flex items-center justify-center gap-2 text-[11px] font-bold border border-red-100">
-                  <AlertTriangle size={16} /> ยาบางรายการสต๊อกไม่พอ ไม่สามารถอนุมัติได้
-                </div>
-              )}
-
-              {/* 🌟 กระดานลายเซ็น (Digital Signature) */}
-              <div className="mt-2">
-                <div className="flex items-center gap-2 mb-1">
-                  <PenLine size={18} className="text-slate-700" />
-                  <span className="font-extrabold text-slate-800 text-sm">ลายมือชื่อผู้อนุมัติ</span>
-                </div>
-                <p className="text-[11px] text-slate-500 mb-3">กรุณาเซ็นชื่อในกรอบด้านล่างเพื่อยืนยันการอนุมัติ</p>
+              {/* 🛑 ฝั่งซ้าย: ข้อมูลเอกสาร */}
+              <div className="flex-1 p-6 md:p-8 md:border-r border-slate-100 flex flex-col">
                 
-                <div className="border-2 border-dashed border-slate-300 rounded-2xl bg-slate-50 relative overflow-hidden h-36">
+                {/* รายละเอียดบิล */}
+                <div className="flex justify-between items-start mb-6">
+                  <div>
+                    <p className="text-[11px] font-bold text-slate-400 mb-1">เลขที่เอกสาร</p>
+                    <p className="text-lg font-black text-blue-700">{selectedGroup[0].doc_no}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[11px] font-bold text-slate-400 mb-1">วันที่ทำรายการ</p>
+                    <p className="text-sm font-bold text-slate-700">{selectedGroup[0].request_date}</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 bg-slate-50 rounded-2xl p-5 mb-6 border border-slate-100">
+                  <div>
+                    <p className="text-[11px] font-bold text-blue-500 mb-1">ผู้ขอเบิก</p>
+                    <p className="text-sm font-extrabold text-slate-800">{selectedGroup[0].requester}</p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-bold text-blue-500 mb-1">หน่วยงาน / ฟาร์ม</p>
+                    <p className="text-sm font-extrabold text-slate-800">{selectedGroup[0].department}</p>
+                  </div>
+                </div>
+
+                {/* ตารางยา */}
+                <div className="mb-8 flex-1">
+                  <h4 className="font-extrabold text-slate-800 text-sm mb-4">รายการยาที่ขอเบิก</h4>
+                  <div className="border border-slate-100 rounded-xl overflow-hidden">
+                    <table className="w-full text-left text-sm">
+                      <thead className="bg-slate-50 border-b border-slate-100">
+                        <tr>
+                          <th className="px-5 py-3 text-slate-500 font-bold text-xs">ชื่อยา</th>
+                          <th className="px-5 py-3 text-slate-500 font-bold text-xs text-right">จำนวน</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-50">
+                        {selectedGroup.map((req, idx) => {
+                          const invItem = inventory.find(inv => inv.name === req.med_name);
+                          const currentStock = invItem ? invItem.stock : 0;
+                          const isEnough = currentStock >= req.amount;
+
+                          return (
+                            <tr key={idx}>
+                              <td className="px-5 py-3 flex items-center gap-3">
+                                <CheckCircle2 size={16} className={isEnough ? "text-green-500" : "text-red-400"} />
+                                <span className="font-bold text-slate-700">{req.med_name}</span>
+                                {!isEnough && <span className="text-[10px] text-red-500 font-bold bg-red-50 px-2 py-0.5 rounded">(สต๊อกไม่พอ)</span>}
+                              </td>
+                              <td className="px-5 py-3 text-right">
+                                <span className="font-bold text-blue-600">{req.amount}</span> 
+                                <span className="text-xs text-slate-500 ml-1">{req.unit}</span>
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* 🌟 ลายเซ็นผู้ขอเบิก (จำลองลายเส้นปากกา) */}
+                <div className="mt-auto pt-6 flex flex-col items-center justify-center">
+                  <svg width="100" height="50" viewBox="0 0 100 50" xmlns="http://www.w3.org/2000/svg" className="mb-2 text-green-700 opacity-80" style={{stroke: 'currentColor', strokeWidth: 1.5, fill: 'none'}}>
+                    <path d="M10,25 Q30,5 50,25 T90,20" />
+                    <path d="M30,35 Q50,45 70,10" />
+                    <path d="M20,25 L80,25" strokeWidth="0.5" strokeDasharray="2,2"/>
+                  </svg>
+                  <div className="w-56 border-b border-dashed border-slate-300 mb-2"></div>
+                  <p className="text-[10px] font-bold text-slate-400 mb-1">ลายมือชื่อผู้ขอเบิก</p>
+                  <p className="text-xs font-bold text-slate-700">{selectedGroup[0].requester}</p>
+                </div>
+
+              </div>
+
+              {/* 🛑 ฝั่งขวา: สำหรับเซ็นชื่อและปุ่มกด */}
+              <div className="w-full md:w-[380px] lg:w-[420px] p-6 md:p-8 flex flex-col bg-white">
+                
+                <div className="mb-2 flex items-center gap-2">
+                  <PenLine size={18} className="text-slate-800" strokeWidth={2.5}/>
+                  <h4 className="font-extrabold text-slate-800 text-base">ลายมือชื่อผู้อนุมัติ</h4>
+                </div>
+                <p className="text-xs text-slate-500 mb-4">กรุณาเซ็นชื่อในกรอบด้านล่างเพื่อยืนยันการอนุมัติ</p>
+                
+                {/* กรอบวาดลายเซ็น */}
+                <div className="border-2 border-dashed border-slate-300 rounded-2xl bg-slate-50/50 relative overflow-hidden h-56 mb-3 hover:bg-slate-50 transition-colors">
                   <SignatureCanvas
                     ref={sigCanvas}
                     penColor="#0f172a"
                     canvasProps={{ className: 'w-full h-full cursor-crosshair' }}
                   />
-                  <div className="absolute bottom-2 right-2 flex items-center justify-center pointer-events-none opacity-10">
-                    <PenLine size={64} />
+                  <div className="absolute bottom-4 right-4 flex items-center justify-center pointer-events-none opacity-5">
+                    <PenLine size={80} />
                   </div>
-                </div>
-
-                <div className="flex justify-end mt-2">
+                  
+                  {/* ปุ่มล้างลายเซ็น */}
                   <button 
                     onClick={() => sigCanvas.current?.clear()}
-                    className="text-[11px] font-bold text-red-500 flex items-center gap-1 hover:text-red-600 transition-colors bg-red-50 px-3 py-1.5 rounded-lg"
+                    className="absolute bottom-3 right-3 text-[10px] font-bold text-red-500 flex items-center gap-1 hover:text-red-600 transition-colors bg-red-50 px-3 py-1.5 rounded-lg border border-red-100 z-10"
                   >
-                    <Eraser size={14} /> ล้างลายเซ็น
+                    <Eraser size={12} /> ล้างลายเซ็น
                   </button>
                 </div>
+
+                {!isAllStockEnough && (
+                  <div className="bg-red-50 text-red-600 p-3 rounded-xl flex items-center justify-center gap-2 text-xs font-bold border border-red-100 mb-4 animate-pulse">
+                    <AlertTriangle size={16} /> ไม่สามารถอนุมัติได้ (สต๊อกไม่พอ)
+                  </div>
+                )}
+
+                {/* ปุ่มกดอนุมัติ / ปฏิเสธ */}
+                <div className="mt-auto flex flex-col gap-3">
+                  <button 
+                    onClick={handleReject} disabled={isProcessing}
+                    className="w-full bg-white border border-red-200 text-red-500 hover:bg-red-50 py-3.5 rounded-xl font-bold text-sm transition-all disabled:opacity-50"
+                  >
+                    ปฏิเสธ
+                  </button>
+                  <button 
+                    onClick={handleApprove} disabled={isProcessing || !isAllStockEnough}
+                    className="w-full bg-slate-200 hover:bg-blue-600 text-slate-600 hover:text-white py-3.5 rounded-xl font-bold text-sm transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {isProcessing ? <Loader2 size={16} className="animate-spin" /> : <Lock size={16} className="opacity-70" />} 
+                    {isProcessing ? 'กำลังประมวลผล...' : 'รอลงนาม'}
+                  </button>
+                </div>
+
               </div>
 
             </div>
-
-            <div className="p-5 bg-slate-50 flex flex-col sm:flex-row gap-3 flex-shrink-0 border-t border-slate-100">
-              <button 
-                onClick={handleReject} disabled={isProcessing}
-                className="w-full sm:flex-1 bg-white border border-red-200 text-red-600 hover:bg-red-50 py-3 rounded-2xl font-bold text-sm transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                ปฏิเสธ
-              </button>
-              <button 
-                onClick={handleApprove} disabled={isProcessing || !isAllStockEnough}
-                className="w-full sm:flex-[2] bg-slate-800 hover:bg-slate-900 text-white py-3 rounded-2xl font-bold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg flex items-center justify-center gap-2"
-              >
-                {isProcessing ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />} 
-                {isProcessing ? 'กำลังประมวลผล...' : 'อนุมัติ & ตัดสต๊อก'}
-              </button>
-            </div>
-
           </div>
         </div>
       )}
 
+      {/* Toast Notification */}
       {toast.isOpen && (
         <div className="fixed bottom-8 right-8 z-[100] animate-in slide-in-from-bottom-5 fade-in duration-300">
           <div className={`text-white px-6 py-4 rounded-2xl shadow-xl flex items-center gap-3 border ${
